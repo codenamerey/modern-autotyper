@@ -1,0 +1,22 @@
+{
+  "tasks": [
+    {
+      "keyword": "Hello mama!!",
+      "interval": 1.0,
+      "count": 5,
+      "delay_before_start": 0.0,
+      "x": 457,
+      "y": 559
+    },
+    {
+      "keyword": "Yooo!",
+      "interval": 1.0,
+      "count": 1,
+      "delay_before_start": 0.0,
+      "x": 968,
+      "y": 582
+    }
+  ],
+  "stop_key": "esc",
+  "type_delay": 0.05
+}

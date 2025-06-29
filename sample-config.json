@@ -1,0 +1,22 @@
+{
+  "tasks": [
+    {
+      "keyword": "Hello World!",
+      "interval": 2.0,
+      "count": 5,
+      "delay_before_start": 1.0,
+      "click_x": null,
+      "click_y": null
+    },
+    {
+      "keyword": "Python is awesome",
+      "interval": 3.5,
+      "count": null,
+      "delay_before_start": 0.5,
+      "click_x": 500,
+      "click_y": 300
+    }
+  ],
+  "stop_key": "esc",
+  "type_delay": 0.05
+}

@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "modern-autotyper"
+version = "1.0.0"
+description = "Multi-threaded autotyper with configurable intervals"
+authors = [{name = "Ryan"}]
+dependencies = [
+    "pyautogui>=0.9.54",
+    "keyboard>=0.13.5",
+    "PyQt6>=6.4.0",
+]
+requires-python = ">=3.8"
+
+[project.scripts]
+modern-autotyper = "modern_autotyper.cli:main"
+modern-autotyper-config = "modern_autotyper.config_gen:main"
+modern-autotyper-gui = "modern_autotyper.gui:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
