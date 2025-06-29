@@ -41,6 +41,72 @@ class AutoTyper:
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
     
+    def _press_key_combination(self, key_combination: str):
+        """Press a key combination using pyautogui."""
+        # Normalize the key combination
+        combo = key_combination.lower().strip()
+        
+        # Handle common key combinations
+        if combo == "enter":
+            pyautogui.press('enter')
+        elif combo == "tab":
+            pyautogui.press('tab')
+        elif combo == "escape" or combo == "esc":
+            pyautogui.press('escape')
+        elif combo == "space":
+            pyautogui.press('space')
+        elif combo == "backspace":
+            pyautogui.press('backspace')
+        elif combo == "delete" or combo == "del":
+            pyautogui.press('delete')
+        elif combo == "home":
+            pyautogui.press('home')
+        elif combo == "end":
+            pyautogui.press('end')
+        elif combo == "pageup":
+            pyautogui.press('pageup')
+        elif combo == "pagedown":
+            pyautogui.press('pagedown')
+        elif combo == "up":
+            pyautogui.press('up')
+        elif combo == "down":
+            pyautogui.press('down')
+        elif combo == "left":
+            pyautogui.press('left')
+        elif combo == "right":
+            pyautogui.press('right')
+        elif combo.startswith("f") and combo[1:].isdigit():
+            # Function keys (f1, f2, etc.)
+            pyautogui.press(combo)
+        elif "+" in combo:
+            # Handle modifier combinations like "ctrl+c", "alt+tab", etc.
+            parts = [part.strip() for part in combo.split("+")]
+            if len(parts) == 2:
+                modifier, key = parts
+                if modifier in ["ctrl", "control"]:
+                    pyautogui.hotkey('ctrl', key)
+                elif modifier in ["alt"]:
+                    pyautogui.hotkey('alt', key)
+                elif modifier in ["shift"]:
+                    pyautogui.hotkey('shift', key)
+                elif modifier in ["cmd", "command", "win", "windows"]:
+                    pyautogui.hotkey('win', key)
+                else:
+                    # Try as a generic hotkey
+                    pyautogui.hotkey(modifier, key)
+            elif len(parts) == 3:
+                # Handle three-key combinations like "ctrl+shift+t"
+                pyautogui.hotkey(parts[0], parts[1], parts[2])
+            else:
+                self.logger.warning(f"Unsupported key combination format: {key_combination}")
+        else:
+            # Try pressing as a single key
+            try:
+                pyautogui.press(combo)
+            except Exception as e:
+                self.logger.error(f"Unknown key combination: {key_combination}")
+                raise e
+    
     def _typing_worker(self, task: TypingTask, stop_event: threading.Event):
         """Worker function for typing tasks."""
         # Initial delay
@@ -67,9 +133,20 @@ class AutoTyper:
                     pyautogui.write(char)
                     time.sleep(self.config.type_delay)
                 
+                # Press key combination if specified
+                if task.key_combination:
+                    if stop_event.is_set():
+                        return
+                    time.sleep(0.1)  # Small delay before key combination
+                    try:
+                        self._press_key_combination(task.key_combination)
+                    except Exception as e:
+                        self.logger.error(f"Error pressing key combination '{task.key_combination}': {e}")
+                
                 count += 1
                 coords_info = f" at ({task.click_x}, {task.click_y})" if task.click_x is not None else ""
-                self.logger.debug(f"Typed '{task.keyword}'{coords_info} (#{count})")
+                key_info = f" + {task.key_combination}" if task.key_combination else ""
+                self.logger.debug(f"Typed '{task.keyword}'{key_info}{coords_info} (#{count})")
                 
                 # Wait for next interval
                 time.sleep(task.interval)

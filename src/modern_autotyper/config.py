@@ -14,6 +14,7 @@ class TypingTask:
     delay_before_start: float = 0.0
     click_x: Optional[int] = None  # Mouse X coordinate to click before typing
     click_y: Optional[int] = None  # Mouse Y coordinate to click before typing
+    key_combination: Optional[str] = None  # Key combination to press after typing (e.g., "enter", "ctrl+c")
     
     def __post_init__(self):
         if self.interval <= 0:

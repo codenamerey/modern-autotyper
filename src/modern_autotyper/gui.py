@@ -76,13 +76,16 @@ try:
             self.parent_dialog = parent_dialog
             self.setWindowTitle("Pick Mouse Coordinates")
             self.setModal(True)
-            self.resize(400, 200)
+            self.resize(450, 250)
+            self.picking = False
             
             layout = QVBoxLayout()
             
             instructions = QLabel(
-                "Click 'Pick Coordinates' and position your mouse.\n"
-                "Coordinates will be picked automatically after 2 seconds."
+                "Click 'Start Picking' to begin coordinate selection.\n"
+                "The dialog will minimize so you can see other applications.\n\n"
+                "Move your mouse to the desired location and press SPACE\n"
+                "to select those coordinates, or press ESC to cancel."
             )
             instructions.setWordWrap(True)
             layout.addWidget(instructions)
@@ -94,9 +97,14 @@ try:
             
             button_layout = QHBoxLayout()
             
-            self.pick_button = QPushButton("Pick Coordinates")
+            self.pick_button = QPushButton("Start Picking")
             self.pick_button.clicked.connect(self.start_picking)
             button_layout.addWidget(self.pick_button)
+            
+            self.cancel_button = QPushButton("Cancel Picking")
+            self.cancel_button.clicked.connect(self.cancel_picking)
+            self.cancel_button.setEnabled(False)
+            button_layout.addWidget(self.cancel_button)
             
             close_button = QPushButton("Close")
             close_button.clicked.connect(self.accept)
@@ -104,38 +112,138 @@ try:
             
             layout.addLayout(button_layout)
             self.setLayout(layout)
+            
+            # Timer for checking mouse clicks
+            self.click_timer = QTimer()
+            self.click_timer.timeout.connect(self.check_for_click)
+            self.last_mouse_pos = None
         
         def start_picking(self):
             """Start coordinate picking."""
+            self.picking = True
             self.pick_button.setEnabled(False)
-            self.status_label.setText("Picking coordinates in 2 seconds...")
+            self.cancel_button.setEnabled(True)
+            self.status_label.setText("Move mouse to desired location and press SPACE\nPress ESC to cancel")
             
-            # Use QTimer to pick coordinates after delay
-            QTimer.singleShot(2000, self.pick_coordinates)
-        
-        def pick_coordinates(self):
-            """Pick coordinates and update parent directly."""
+            # Minimize dialog so user can click anywhere
+            self.showMinimized()
+            
+            # Start checking for mouse clicks
             try:
                 import pyautogui
-                x, y = pyautogui.position()
-                print(f"Picked coordinates: x={x}, y={y}")
-                
-                # Directly update the parent dialog
-                self.parent_dialog.use_coords_check.setChecked(True)
-                self.parent_dialog.x_spin.setValue(x)
-                self.parent_dialog.y_spin.setValue(y)
-                
-                print(f"Updated parent: checkbox={self.parent_dialog.use_coords_check.isChecked()}")
-                print(f"Updated parent: x={self.parent_dialog.x_spin.value()}, y={self.parent_dialog.y_spin.value()}")
-                
-                self.status_label.setText(f"Coordinates picked: ({x}, {y})\nUpdated task configuration.")
-                self.pick_button.setText("Pick Again")
-                self.pick_button.setEnabled(True)
-                
+                self.last_mouse_pos = pyautogui.position()
+                self.click_timer.start(50)  # Check every 50ms
             except Exception as e:
-                print(f"Error picking coordinates: {e}")
-                self.status_label.setText(f"Error: {e}")
-                self.pick_button.setEnabled(True)
+                print(f"Error starting picker: {e}")
+                self.cancel_picking()
+        
+        def check_for_click(self):
+            """Check if mouse has been clicked."""
+            if not self.picking:
+                return
+                
+            try:
+                import pyautogui
+                
+                # Check for ESC key to cancel
+                try:
+                    import keyboard
+                    if keyboard.is_pressed('escape'):
+                        self.cancel_picking()
+                        return
+                except:
+                    pass  # Ignore keyboard errors
+                
+                # Simple approach: try to detect mouse button state
+                try:
+                    # Get current mouse position
+                    current_pos = pyautogui.position()
+                    
+                    # Try pynput for better click detection
+                    try:
+                        from pynput import mouse
+                        # Check if mouse button is currently pressed
+                        # This is a simple workaround - we'll use a different approach
+                        pass
+                    except ImportError:
+                        pass
+                    
+                    # Fallback: use a simple approach with SPACE key
+                    try:
+                        import keyboard
+                        if keyboard.is_pressed('space'):
+                            # User pressed space, pick current coordinates
+                            while keyboard.is_pressed('space'):
+                                import time
+                                time.sleep(0.05)  # Wait for key release
+                            self.pick_coordinates_at_position(current_pos)
+                            return
+                    except:
+                        pass
+                        
+                    # Update status with current position
+                    if hasattr(self, 'last_status_update'):
+                        import time
+                        if time.time() - self.last_status_update > 0.5:  # Update every 500ms
+                            self.status_label.setText(f"Current position: ({current_pos[0]}, {current_pos[1]})\nPress SPACE to select, ESC to cancel")
+                            self.last_status_update = time.time()
+                    else:
+                        import time
+                        self.last_status_update = time.time()
+                        
+                except Exception as e:
+                    print(f"Error in click detection: {e}")
+                    
+            except Exception as e:
+                print(f"Error checking for click: {e}")
+                self.cancel_picking()
+        
+        def pick_coordinates_at_position(self, pos):
+            """Pick coordinates at the given position."""
+            self.picking = False
+            self.click_timer.stop()
+            
+            x, y = pos
+            print(f"Picked coordinates: x={x}, y={y}")
+            
+            # Directly update the parent dialog
+            self.parent_dialog.use_coords_check.setChecked(True)
+            self.parent_dialog.x_spin.setValue(x)
+            self.parent_dialog.y_spin.setValue(y)
+            
+            print(f"Updated parent: checkbox={self.parent_dialog.use_coords_check.isChecked()}")
+            print(f"Updated parent: x={self.parent_dialog.x_spin.value()}, y={self.parent_dialog.y_spin.value()}")
+            
+            # Restore dialog
+            self.showNormal()
+            self.activateWindow()
+            self.raise_()
+            
+            self.status_label.setText(f"Coordinates picked: ({x}, {y})\nUpdated task configuration.")
+            self.pick_button.setText("Pick Again")
+            self.pick_button.setEnabled(True)
+            self.cancel_button.setEnabled(False)
+        
+        def cancel_picking(self):
+            """Cancel coordinate picking."""
+            self.picking = False
+            self.click_timer.stop()
+            
+            # Restore dialog
+            self.showNormal()
+            self.activateWindow()
+            self.raise_()
+            
+            self.status_label.setText("Coordinate picking cancelled")
+            self.pick_button.setEnabled(True)
+            self.cancel_button.setEnabled(False)
+        
+        def keyPressEvent(self, event):
+            """Handle key press events."""
+            if event.key() == Qt.Key.Key_Escape and self.picking:
+                self.cancel_picking()
+            else:
+                super().keyPressEvent(event)
 
     class CoordinatePickerDialog(QDialog):
         """Dialog for picking mouse coordinates interactively."""
@@ -293,6 +401,13 @@ try:
             self.delay_spin.setSuffix(" seconds")
             form_layout.addRow("Delay Before Start:", self.delay_spin)
             
+            # Key combination field
+            self.key_combo_edit = QLineEdit()
+            if task:
+                self.key_combo_edit.setText(task.get('key_combination', ''))
+            self.key_combo_edit.setPlaceholderText("e.g., enter, ctrl+c, alt+tab (optional)")
+            form_layout.addRow("Key Combination:", self.key_combo_edit)
+            
             layout.addLayout(form_layout)
             
             # Mouse coordinates section
@@ -364,8 +479,14 @@ try:
                 'delay_before_start': self.delay_spin.value()
             }
             
+            # Add key combination if specified
+            key_combo = self.key_combo_edit.text().strip()
+            if key_combo:
+                task_data['key_combination'] = key_combo
+            
             print(f"get_task_data: use_coords_check.isChecked() = {self.use_coords_check.isChecked()}")
             print(f"get_task_data: x_spin.value() = {self.x_spin.value()}, y_spin.value() = {self.y_spin.value()}")
+            print(f"get_task_data: key_combination = {task_data.get('key_combination', 'None')}")
             
             if self.use_coords_check.isChecked():
                 task_data['x'] = self.x_spin.value()
@@ -414,8 +535,8 @@ try:
             
             # Task table
             self.task_table = QTableWidget()
-            self.task_table.setColumnCount(6)
-            self.task_table.setHorizontalHeaderLabels(["Keyword", "Interval", "Count", "Delay", "Coordinates", "Status"])
+            self.task_table.setColumnCount(7)
+            self.task_table.setHorizontalHeaderLabels(["Keyword", "Interval", "Count", "Delay", "Key Combo", "Coordinates", "Status"])
             self.task_table.horizontalHeader().setStretchLastSection(True)
             task_layout.addWidget(self.task_table)
             
@@ -507,13 +628,19 @@ try:
                 self.task_table.setItem(i, 2, QTableWidgetItem(count_str))
                 self.task_table.setItem(i, 3, QTableWidgetItem(f"{task.get('delay_before_start', 0.0):.1f}s"))
                 
+                # Key combination
+                key_combo_str = task.get('key_combination', 'None') or 'None'
+                self.task_table.setItem(i, 4, QTableWidgetItem(key_combo_str))
+                
+                # Coordinates
                 coords_str = "None"
                 if task.get('x') is not None and task.get('y') is not None:
                     coords_str = f"({task.get('x')}, {task.get('y')})"
-                self.task_table.setItem(i, 4, QTableWidgetItem(coords_str))
+                self.task_table.setItem(i, 5, QTableWidgetItem(coords_str))
                 
+                # Status
                 status_str = task.get('status', 'Ready')
-                self.task_table.setItem(i, 5, QTableWidgetItem(status_str))
+                self.task_table.setItem(i, 6, QTableWidgetItem(status_str))
         
         def add_task(self):
             """Add a new task."""
@@ -581,7 +708,8 @@ try:
                         count=task.get('count'),
                         delay_before_start=task.get('delay_before_start', 0.0),
                         click_x=click_x,
-                        click_y=click_y
+                        click_y=click_y,
+                        key_combination=task.get('key_combination')
                     )
                     typing_tasks.append(typing_task)
                 
